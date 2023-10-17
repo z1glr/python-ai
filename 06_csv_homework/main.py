@@ -6,7 +6,8 @@ import pandas as pd
 
 CSV_DIR = Path("csv") # path of the directory with the input files from ILIAS
 OUT_DIR = Path("output") # master-output-directory
-OUT_DIR_STUDENTS = OUT_DIR / "students" # output-directory for the results of the individual students
+# output-directory for the results of the individual students
+OUT_DIR_STUDENTS = OUT_DIR / "students"
 OUT_FILE_RESULTS = OUT_DIR / "results.csv" # output-file for the percentage output
 DELIMITER = ';' # delimiter of the csv-files
 OUTPUT_STUDENT_NAMES = False # wether to output the student names or only their matricle number
@@ -17,7 +18,13 @@ S_SIRE_NAME = "name" # column-name of the sire-name
 
 TRES_PASSED = 0.5 # average treshold with which the student passed the test
 
-RE_NUMBERS = re.compile(r"^(?P<identifier>A)(?P<number>\d+)$") # regex to check for column-names of the tasks
+# regex to check for column-names of the tasks
+RE_NUMBERS = re.compile(r"^(?P<identifier>A)(?P<number>\d+)$")
+
+class DuplicateMatrNrException(Exception):
+    """_summary_ Exception where the same matricle-number appears multiple times
+    in the same dataframe
+    """
 
 def main():
     """_summary_ main function
@@ -60,7 +67,11 @@ def df_load_csv(csv_path: Path) -> pd.DataFrame:
     """
 
     # index_col: column-names to be used to identify the individual rows
-    return pd.read_csv(filepath_or_buffer=csv_path, delimiter=DELIMITER, index_col=[I_MAT_NUM, S_SIRE_NAME, S_FORE_NAME])
+    return pd.read_csv(
+        filepath_or_buffer=csv_path,
+        delimiter=DELIMITER,
+        index_col=[I_MAT_NUM, S_SIRE_NAME, S_FORE_NAME]
+    )
 
 def df_merge_dataframes_from_list(lst_datafarmes: list[pd.DataFrame]) -> pd.DataFrame:
     """_summary_ combine a list full of dataframes into a single big one
@@ -94,9 +105,31 @@ def df_merge_dataframes_from_list(lst_datafarmes: list[pd.DataFrame]) -> pd.Data
     try:
         df_master = pd.concat(objs=lst_renamed_dataframes, axis="columns")
     except pd.errors.InvalidIndexError as e:
-        print ("invalid index, possible index duplicates in a single homework, please check manually")
+        print (
+            "invalid index, possibleindex duplicates in a single homework, please check manually"
+        )
 
         raise e
+
+    # check wether a matrical-number appears multiple times
+    sr_index_matr_nr = df_master.index.droplevel([1, 2])
+
+    # create a boolean map, wether the index has a duplicate
+    sr_index_matr_nr_duplicates = sr_index_matr_nr.duplicated(keep=False)
+
+    # extract the indexes from all the duplicates from the master-dataframe
+    lst_duplicates = list(df_master[sr_index_matr_nr_duplicates].index)
+
+    # if there are any entries in the duplicate list, print them and then raise an exception
+    if len(lst_duplicates) > 0:
+        # format the matricle-number and student-names into a string each
+        lst_str_duplicats = list(map(lambda tt: f"{tt[0]}: {tt[1]}, {tt[2]}", lst_duplicates))
+
+        # raise an exception
+        raise DuplicateMatrNrException(
+            "The same matricle number appears mutiple times with a different name"
+            f"({lst_str_duplicats})"
+        )
 
     # return the master dataframe
     return df_master
@@ -146,7 +179,8 @@ def export_student_row(sr_points: pd.Series, t_ident: tuple[int, str, str]):
     # construct the path of the output file
     out_file = (OUT_DIR_STUDENTS / str(t_ident[0])).with_suffix(".csv")
 
-    # drop all the NaN values from the timeseries (from the homeworks the student didn't participate in)
+    # drop all the NaN values from the timeseries
+    # (from the homeworks the student didn't participate in)
     sr_points.dropna(inplace=True)
 
     # check wether the student names should be outputted or only the matricel number
@@ -162,8 +196,10 @@ def export_students_percent(df_points: pd.DataFrame, sr_max_points: pd.Series):
     """_summary_ export the points-fraction for every task into a csv-file
 
     Args:
-        df_points (pd.DataFrame): _description_ dataframe with all the points from every student at every task
-        sr_max_points (pd.Series): _description_ series with the maximum achieved points at every task
+        df_points (pd.DataFrame): _description_ dataframe with all the points
+        from every student at every task
+        sr_max_points (pd.Series): _description_ series with the maximum
+        achieved points at every task
     """
     # calculate the percentage of every task of every student
     fd_percentage = df_points / sr_max_points
