@@ -10,6 +10,7 @@ OUT_DIR = Path("output") # master-output-directory
 OUT_DIR_STUDENTS = OUT_DIR / "students"
 OUT_FILE_RESULTS = OUT_DIR / "results.csv" # output-file for the percentage output
 DELIMITER = ';' # delimiter of the csv-files
+QUOTE_CHAR = '"'
 OUTPUT_STUDENT_NAMES = False # wether to output the student names or only their matricle number
 
 I_MAT_NUM = "Matr-Nr" # column-name of the matricel number
@@ -70,6 +71,7 @@ def df_load_csv(csv_path: Path) -> pd.DataFrame:
     return pd.read_csv(
         filepath_or_buffer=csv_path,
         delimiter=DELIMITER,
+        quotechar=QUOTE_CHAR,
         index_col=[I_MAT_NUM, S_SIRE_NAME, S_FORE_NAME]
     )
 
