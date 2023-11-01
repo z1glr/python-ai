@@ -1,85 +1,70 @@
 from pathlib import Path
-import numpy as np
 import pandas as pd
 
-PTH_DATA_FILE = Path("diagnosis.csv")
-F_TRAINING_DATA = 0.8
+from bayes import NaiveBayes
 
-DF_DATA: pd.DataFrame 
+PTH_DATA_FILE = Path("diagnosis.data")
+S_CSV_ENCODING = "utf_16_le"
+CHR_CSV_DELIMITER = '\t'
+CHR_CSV_DECIMAL_POINT = ','
+F_TRAINING_TEST_SPLIT = 0.8
+F_LAPLACE_ALPHA = 1
 
-LST_DISEASES = ["bladder_inflammation", "nephritis"]
+F_TRESHOLD_ERROR = 0.5
 
-TPL_F_EDGES = (35.0, 36.5, 37.5, 38.1, 38.6, 39.1, 40.0, 42.0)
-TPL_S_LABELS = ("cold", "normal temperature","subfebrile temperature","slight fever","moderate fever","high fever","very high fever")
+TPL_COLUMN_NAMES = ("Temperature of patient", "Occurrence of nausea", "Lumbar  ain", "Urine pushing", "Micturition pains", "Burning of urethra, itch, swelling of urethra outlet", "Inflammation of urinary bladder", "Nephritis of renal pelvis origin")
+TPL_DISEASES = ("Inflammation of urinary bladder", "Nephritis of renal pelvis origin")
+
+TPL_F_TEMP_BOUNDS = (35.0, 36.5, 37.4, 42.0)
+TPL_S_TEMP_LABELS = ("cold", "normal", "hot")
 
 def main():
-    df_data = pd.read_csv(PTH_DATA_FILE, delimiter=",")
+    # load the dataset into a pandas dataframe
+    df_data = pd.read_csv(PTH_DATA_FILE, delimiter=CHR_CSV_DELIMITER, names=TPL_COLUMN_NAMES, decimal=CHR_CSV_DECIMAL_POINT, encoding=S_CSV_ENCODING)
+    df_data: pd.DataFrame = df_data.map(yes_no_map)
 
-    df_data["temperature"] = pd.cut(df_data["temperature"], bins=TPL_F_EDGES, include_lowest=True, labels=TPL_S_LABELS)
+    df_data["Temperature of patient"] = pd.cut(df_data["Temperature of patient"], bins=TPL_F_TEMP_BOUNDS, include_lowest=True, labels=TPL_S_TEMP_LABELS)
 
-    df_data.drop("temperature", axis=1, inplace=True)
+    # df_data.drop("Temperature of patient", axis=1)
 
-    df_data_training = df_data.sample(frac=F_TRAINING_DATA)
-    # df_data_training = df_data[int(len(df_data) * F_TRAINING_DATA):]
-    df_data_test = df_data.drop(df_data_training.index)
+    # split the data into the training- and test-data
+    df_training, df_test = df_training_test_split(df_data, F_TRAINING_TEST_SPLIT)
 
-    df_data_training.to_csv(Path("training.csv"))
+    # initialize the naive bayes
+    nb_acute_inflammation = NaiveBayes(df_training, list(TPL_DISEASES), F_LAPLACE_ALPHA)
 
-    global DF_DATA
-    DF_DATA = df_data_training
+    for ii, sr_test in df_test.iterrows():
+        sr_symptoms = sr_test.drop(list(TPL_DISEASES))
 
-    for ii, pp in df_data_test.iterrows():
-        sr_symptoms = pp.drop(LST_DISEASES)
+        for str_disease in TPL_DISEASES:
+            f_res = nb_acute_inflammation.f_predict(str_disease, sr_symptoms)
 
-        res = []
+            if (f_res >= F_TRESHOLD_ERROR) ^ sr_test[str_disease]:
+                print(f"{sr_test.name} {str_disease} {f_res:.4f} {sr_test[str_disease]}")
 
-        for dd in LST_DISEASES:
-            res.append((dd, bayes(dd, sr_symptoms), pp[dd]))
-            print(f"{dd} {bayes(dd, sr_symptoms):.4f} {pp[dd]}")
+def yes_no_map(datapoint):
+    match datapoint:
+        case "yes":
+            return True
+        case "no":
+            return False
+        case _:
+            return datapoint
 
-        if res[0][1] > res[1][1] and res[0][2] > res[1][2] or res[0][1] < res[1][1] and res[0][2] < res[1][2]:
-            # print ("good")
-            ...
-        else:
-            # print(pp)
-            print("problemo")
+def df_training_test_split(df_data: pd.DataFrame, f_split: float) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Split a dataframe into a training- and test-dataframe
 
-        print()
+    Args:
+        df_data (pd.DataFrame): complete dataframe
+        f_split (float): fraction of the training-dataframe
 
-def bayes(i, lst_x: pd.Series):
-    df_subdata = DF_DATA[DF_DATA[i] == True]
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame]: training-dataframe, test-dataframe
+    """
+    df_training = df_data.sample(frac=f_split)
+    df_test = df_data.drop(df_training.index)
 
-    if np.array_equal(lst_x.values, [False, True, False, False, False]):
-        print ("foobar")
-
-    res_oben =  DF_DATA[i].mean()
-    res_unten = 0.0
-
-    for xx in lst_x.items():
-        res_oben *= prob_P (xx, i, df_subdata)
-
-    for jj in LST_DISEASES:
-        df_subdata = DF_DATA[DF_DATA[jj] == True]
-
-        f_zwischen = DF_DATA[jj].mean()
-
-        for xx in lst_x.items():
-            f_zwischen *= prob_P(xx, jj, df_subdata)
-
-        res_unten += f_zwischen
-
-    # print(res_oben, res_unten)
-    
-    return res_oben / res_unten
-
-def prob_P(x, i, data: pd.Series):
-    df_subdata = data[data[i] == True]
-
-    if x[1] in df_subdata[x[0]].values:
-        # print(f"{df_subdata[x[0]].value_counts()[x[1]]}/{len(data)}")
-        return df_subdata[x[0]].value_counts()[x[1]] / len(data)
-    else:
-        return 0.0000001
+    return df_training, df_test
 
 if __name__ == "__main__":
     main()
