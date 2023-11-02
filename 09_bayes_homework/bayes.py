@@ -39,7 +39,7 @@ class NaiveBayes:
         # calculate the prior * likelihood
         f_res_a = f_prior * self.f_likelihood(str_result, sr_data, state)
         # calculate the part of the evidence
-        f_res_b = (1 - f_prior) * self.f_likelihood(sr_data, str_result, not state)
+        f_res_b = (1 - f_prior) * self.f_likelihood(str_result, sr_data, not state)
 
         # calculate the naive-bayes
         return 1 / (1 + f_res_b / f_res_a)
