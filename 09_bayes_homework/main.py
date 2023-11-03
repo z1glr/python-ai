@@ -47,6 +47,30 @@ TPL_S_TEMP_LABELS = ("cold", "normal", "hot")
 def main():
     """main-function
     """
+    df_data = df_load_data()
+
+    # split the data into the training- and test-data
+    df_training, df_test = df_training_test_split(df_data, F_TRAINING_TEST_SPLIT)
+
+    # initialize the naive bayes
+    nb_acute_inflammation = NaiveBayes(df_training, list(TPL_DISEASES), F_LAPLACE_ALPHA)
+
+    # create an empty numpy array to store the results
+    np_results = np.empty((len(df_test), 5))
+
+    # go throught the test-data and test every single dataset
+    for i_count, (i_index, sr_test) in enumerate(df_test.iterrows()):
+        np_results[i_count] = predict(sr_test, nb_acute_inflammation)
+
+    # plot the results
+    create_results(np_results)
+
+def df_load_data() -> pd.DataFrame:
+    """load the dataset into a dataframe and group the temperature into different baskets
+
+    Returns:
+        pd.DataFrame: complete dataset
+    """
     # load the dataset into a pandas dataframe
     df_data = pd.read_csv(
         filepath_or_buffer=PTH_DATA_FILE,
@@ -66,42 +90,66 @@ def main():
         labels=TPL_S_TEMP_LABELS
     )
 
-    # split the data into the training- and test-data
-    df_training, df_test = df_training_test_split(df_data, F_TRAINING_TEST_SPLIT)
+    return df_data
 
-    # initialize the naive bayes
-    nb_acute_inflammation = NaiveBayes(df_training, list(TPL_DISEASES), F_LAPLACE_ALPHA)
+def df_training_test_split(
+        df_data: pd.DataFrame,
+        f_split: float
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Split a dataframe into a training- and test-dataframe
 
-    # create an empty numpy array to store the results
-    np_results = np.empty((len(df_test), 5))
+    Args:
+        df_data (pd.DataFrame): complete dataframe
+        f_split (float): fraction of the training-dataframe
 
-    # go throught the test-data and test every single dataset
-    for i_count, (i_index, sr_test) in enumerate(df_test.iterrows()):
-        # take only the symptoms
-        sr_symptoms = sr_test.drop(list(TPL_DISEASES))
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame]: training-dataframe, test-dataframe
+    """
+    # randomly select the training-data
+    df_training = df_data.sample(frac=f_split)
+    # use the remaining data as the test-data
+    df_test = df_data.drop(df_training.index)
 
-        # print the index (= line-number) of the data in the csv
-        print(f"\nline {i_index}")
+    return df_training, df_test
 
-        # dictionary to store the results of the current data
-        dct_res = {}
+def predict(sr_test: pd.Series, nb_acute_inflammation: NaiveBayes):
+    """predict the diseases from the symptoms with the naive-bayes
 
-        # go through all the diseases
-        for str_disease in TPL_DISEASES:
-            # predigt the propability of the current disease given the symptoms
-            f_res = nb_acute_inflammation.f_predict(str_disease, sr_symptoms)
+    Args:
+        sr_test (pd.Series): symptoms
+        nb_acute_inflammation (NaiveBayes): naive-bayes instance
+    """
+    # take only the symptoms
+    sr_symptoms = sr_test.drop(list(TPL_DISEASES))
 
-            print (
-                f"{str_disease}: {f_res * 100:.1f} %"
-                f"-> {f_res >= F_TRESHOLD_ERROR} ({sr_test[str_disease]})"
-            )
+    # print the index (= line-number) of the data in the csv
+    print(f"\nline {sr_test.name}")
 
-            # store the results in the dictionary of the current disease
-            dct_res[str_disease] = (sr_test[str_disease], f_res)
+    # dictionary to store the results of the current data
+    dct_res = {}
 
-        # store the current diseases results in the results-array
-        np_results[i_count] = (i_index, *dct_res[TPL_DISEASES[0]], *dct_res[TPL_DISEASES[1]])
+    # go through all the diseases
+    for str_disease in TPL_DISEASES:
+        # predigt the propability of the current disease given the symptoms
+        f_res = nb_acute_inflammation.f_predict(str_disease, sr_symptoms)
 
+        print (
+            f"{str_disease}: {f_res * 100:.1f} %"
+            f"-> {f_res >= F_TRESHOLD_ERROR} ({sr_test[str_disease]})"
+        )
+
+        # store the results in the dictionary of the current disease
+        dct_res[str_disease] = (sr_test[str_disease], f_res)
+
+    # return the results
+    return sr_test.name, *dct_res[TPL_DISEASES[0]], *dct_res[TPL_DISEASES[1]]
+
+def create_results(np_data: np.ndarray):
+    """Plots the results into 4 graphs: 2 for every desease, and 2 for true / false
+
+    Args:
+        np_data (np.ndarray): result-data used for the plot
+    """
     # construct the header of the results-dataframe
     tpl_header_values = ("reference", "propability")
     tpl_header_diseases = (x for x in TPL_DISEASES for _ in range(len(tpl_header_values)))
@@ -109,8 +157,8 @@ def main():
 
     # store the results in a dataframe
     df_results = pd.DataFrame(
-        np_results[:, 1:],
-        index=np_results[:, 0],
+        np_data[:, 1:],
+        index=np_data[:, 0],
         columns=pd.MultiIndex.from_tuples(tpl_header, names=("disease", "values"))
     )
 
@@ -147,25 +195,6 @@ def main():
 
     plt.show()
 
-def df_training_test_split(
-        df_data: pd.DataFrame,
-        f_split: float
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Split a dataframe into a training- and test-dataframe
-
-    Args:
-        df_data (pd.DataFrame): complete dataframe
-        f_split (float): fraction of the training-dataframe
-
-    Returns:
-        tuple[pd.DataFrame, pd.DataFrame]: training-dataframe, test-dataframe
-    """
-    # randomly select the training-data
-    df_training = df_data.sample(frac=f_split)
-    # use the remaining data as the test-data
-    df_test = df_data.drop(df_training.index)
-
-    return df_training, df_test
-
 if __name__ == "__main__":
-    main()
+    while True:
+        main()
