@@ -70,6 +70,6 @@ class NaiveBayes:
                 i_count += df_subdata[pp[0]].value_counts()[pp[1]]
 
             # multiply the individual propability to the total propability
-            f_result *= i_count / len(df_subdata)
+            f_result *= i_count / (len(df_subdata) + self.f_laplace_alpha * len(sr_data))
 
         return f_result

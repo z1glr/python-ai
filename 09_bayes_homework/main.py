@@ -18,7 +18,7 @@ CHR_CSV_DELIMITER = '\t'
 # decimal-point of the dataset
 CHR_CSV_DECIMAL_POINT = ','
 # split between training and test data
-F_TRAINING_TEST_SPLIT = 0.8
+F_TRAINING_TEST_SPLIT = 0.85
 # value for the alpha value of the laplace factor
 F_LAPLACE_ALPHA = 1
 
@@ -39,10 +39,12 @@ TPL_COLUMN_NAMES = (
 # names of the disease-columns
 TPL_DISEASES = ("Inflammation of urinary bladder", "Nephritis of renal pelvis origin")
 
-# bounds for the temperature-classes
-TPL_F_TEMP_BOUNDS = (35.0, 36.5, 38, 42.0)
-# names of the temperature classes
-TPL_S_TEMP_LABELS = ("cold", "normal", "hot")
+# # bounds for the temperature-classes
+# TPL_F_TEMP_BOUNDS = (35.0, 36.5, 38, 42.0)
+TPL_F_TEMP_BOUNDS = (33.9, 35.3, 37.8, 38.3, 39.4, 42.2)
+# # names of the temperature classes
+# TPL_S_TEMP_LABELS = ("cold", "normal", "hot")
+TPL_S_TEMP_LABELS = ("low", "normal", "mild fever", "moderate fever", "high fever")
 
 def main():
     """main-function
@@ -196,5 +198,4 @@ def create_results(np_data: np.ndarray):
     plt.show()
 
 if __name__ == "__main__":
-    while True:
-        main()
+    main()
